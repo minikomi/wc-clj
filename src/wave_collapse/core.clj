@@ -1,13 +1,35 @@
-(ns wave-collapse.core)
+(ns wave-collapse.core
+
+  (:require
+
+   [io.aviso.ansi :as ansi]))
 
 (def input-matrix-1
-  [["L" "L" "L" "L"]
-   ["L" "L" "L" "L"]
-   ["L" "L" "P" "L"]
-   ["L" "C" "P" "L"]
-   ["C" "S" "S" "C"]
-   ["S" "S" "S" "S"]
-   ["S" "S" "S" "S"]])
+  [
+
+    ["L" "L" "L" "L"]
+    ["L" "L" "L" "L"]
+    ["L" "L" "L" "L"]
+    ["L" "C" "C" "L"]
+    ["C" "S" "S" "C"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"]
+    ["S" "S" "S" "S"] ])
 
 (def directions
   [[:up   [-1 0]]
@@ -27,8 +49,7 @@
 
 (defn shanon-entropy [probabilities]
   (- (reduce #(let [p (second %2)]
-                (+ %
-                   (* p (log2 p))))
+                (+ % (* p (log2 p))))
              0
              probabilities)))
 
@@ -66,7 +87,7 @@
                    probabilities (into {}
                                        (map (fn [[c w]] [c (/ w total-weights)]))
                                        weights)
-                   entropy (shanon-entropy probabilities)]]
+                   entropy (+ (rand 0.002) (shanon-entropy probabilities))]]
          [co-ord entropy])
        (sort-by second)
        ffirst))
@@ -94,11 +115,33 @@
         r (rand-int (last w))]
     (nth (keys m) (count (take-while #(<= % r) w)))))
 
+(defn weighted-rand-choice
+  "Return a random element from the weighted collection.
+  A weighted collection can be any seq of [choice, weight] elements.  The
+  weights can be arbitrary numbers -- they do not need to add up to anything
+  specific.
+  Examples:
+  (rand-nth-weighted [[:a 0.50] [:b 0.20] [:c 0.30]])
+  (rand-nth-weighted {:a 10 :b 200})
+  "
+  [coll]
+  (let [total (reduce + (map second coll))]
+    (loop [i (rand total)
+           [[choice weight] & remaining] (seq coll)]
+      (if (>= weight i)
+        choice
+        (recur (- i weight) remaining)))))
+
 (defn matrix-print [matrix w h]
   (println "------- MATRIX")
   (doseq [y (range h)]
     (do (doseq [x (range w)]
-          (print (apply str (get matrix [y x]))))
+          (print (case (first (get matrix [y x]))
+                   "C" (ansi/yellow "C")
+                   "S" (ansi/blue "S")
+                   "L" (ansi/green "L")
+
+                   )))
         (print "\n")
         (flush))))
 
@@ -129,7 +172,6 @@
               (= n-tiles n-tiles') false
               (empty? n-tiles') (do
                                   (println "")
-                                  (println tiles "x" n-tiles "=" r)
                                   (matrix-print-err m 40 10) ()
                                   (println co-ord n-co-ord dir "<<<< IMPOSSSIBLE")
                                   :impossible)
@@ -143,8 +185,7 @@
   (loop [stack [co-ord]
          m (assoc matrix co-ord #{selection})
          u (disj uncollapsed co-ord)]
-   ;; (print co-ord (peek stack) "")
-    ;;(matrix-print-err m 40 10)
+ ;;   (matrix-print-err m 40 10)
     (if (empty? stack) (assoc state
                               :uncollapsed u
                               :matrix m)
@@ -160,19 +201,22 @@
                   (recur (pop stack) m u)))))))
 
 (defn step [{:keys [uncollapsed matrix weights rules] :as state}]
+  ;;(println "----------- STEP ---------------")
   (let [co-ord (lowest-entropy state)
         tiles (get matrix co-ord)
         selection (weighted-rand-choice (select-keys weights tiles))]
     (propagate-step state co-ord selection)))
 
 (comment
-  (let [starting (assoc (create-starting-state input-matrix-1 40 50)
+
+  (frequencies (take 10000 (repeatedly #(weighted-rand-choice {:L 8, :C 4, :P 2, :S 42}))))
+  (let [starting (assoc (create-starting-state input-matrix-1 40 10)
                         :w 40
                         :h 10)]
     (loop [state starting]
       (cond (empty? (:uncollapsed state)) (do
                                             (println "WE DID IT")
-                                            (matrix-print (:matrix state) 40 50))
+                                            (matrix-print (:matrix state) 40 10))
             :else
             (if-let [stepped (step state)]
               (recur stepped)

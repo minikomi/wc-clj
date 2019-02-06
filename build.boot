@@ -9,6 +9,7 @@
                             [metosin/bat-test "0.4.2"
                              :exclude #{org.clojure.tools.reader}]
                             [http-kit "2.3.0"]
+[io.aviso/pretty "0.1.37"]
                             ])
 
 (require
