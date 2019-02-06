@@ -3,7 +3,7 @@
 (def input-matrix-1
   [["L" "L" "L" "L"]
    ["L" "L" "L" "L"]
-   ["L" "L" "P" "P"]
+   ["L" "L" "P" "L"]
    ["L" "C" "P" "L"]
    ["C" "S" "S" "C"]
    ["S" "S" "S" "S"]
@@ -99,7 +99,8 @@
   (doseq [y (range h)]
     (do (doseq [x (range w)]
           (print (apply str (get matrix [y x]))))
-        (print "\n"))))
+        (print "\n")
+        (flush))))
 
 (defn matrix-print-err [matrix w h]
   (println "------- MATRIX")
@@ -111,15 +112,15 @@
     (print (format "%5d" y))
     (do (doseq [x (range w)]
           (print (format "%5s" (apply str (get matrix [y x])))))
-        (print "\n"))))
+        (print "\n")
+        (flush))))
 
 (defn try-propagate [rules m u co-ord dir]
   (let [tiles (get m co-ord)
         n-co-ord (modify co-ord dir)
         n-tiles (get m n-co-ord)]
-
     (if (or (nil? n-tiles)
-            (not (u n-co-ord))) false
+            (= 1 (count n-tiles))) false
         (do
           (let [r (for [nt n-tiles t tiles] [t nt dir])
                 ok (filter rules r)
@@ -129,8 +130,8 @@
               (empty? n-tiles') (do
                                   (println "")
                                   (println tiles "x" n-tiles "=" r)
+                                  (matrix-print-err m 40 10) ()
                                   (println co-ord n-co-ord dir "<<<< IMPOSSSIBLE")
-                                  (matrix-print-err m 20 10)
                                   :impossible)
               :else (let [m' (assoc m n-co-ord n-tiles')
                           u' (if (= 1 (count n-tiles'))
@@ -142,6 +143,8 @@
   (loop [stack [co-ord]
          m (assoc matrix co-ord #{selection})
          u (disj uncollapsed co-ord)]
+   ;; (print co-ord (peek stack) "")
+    ;;(matrix-print-err m 40 10)
     (if (empty? stack) (assoc state
                               :uncollapsed u
                               :matrix m)
@@ -150,37 +153,36 @@
                               (map first directions))]
             (cond (= stepped :impossible)
                   false
-                  (not stepped)
-                  (recur (pop stack) m u)
-                  :else
+                  stepped
                   (let [[m' u' n-co-ord] stepped]
-                    (recur (conj stack n-co-ord) m' u'))))))))
+                    (recur (conj stack n-co-ord) m' u'))
+                  :else
+                  (recur (pop stack) m u)))))))
 
 (defn step [{:keys [uncollapsed matrix weights rules] :as state}]
   (let [co-ord (lowest-entropy state)
         tiles (get matrix co-ord)
-        selection (weighted-rand-choice weights)]
-    (print co-ord " ")
+        selection (weighted-rand-choice (select-keys weights tiles))]
     (propagate-step state co-ord selection)))
 
 (comment
-  (let [starting (assoc (create-starting-state input-matrix-1 10 10)
-                        :w 10
+  (let [starting (assoc (create-starting-state input-matrix-1 40 50)
+                        :w 40
                         :h 10)]
-    (clojure.pprint/pprint (:rules starting))
     (loop [state starting]
-     ;; (println "-----")
       (cond (empty? (:uncollapsed state)) (do
                                             (println "WE DID IT")
-                                            (matrix-print (:matrix state) 10 10))
+                                            (matrix-print (:matrix state) 40 50))
             :else
             (if-let [stepped (step state)]
               (recur stepped)
               (if
-               (< 500 (:tries state)) (do
+               (< 5 (:tries state)) (do
                                         (println "OUT OF TRIES"))
-               (do #_(matrix-print-err (:matrix state) 10 10)
+               (do #_(matrix-print-err (:matrix state) 40 10)
 
                    (recur
 
-                    (assoc starting :tries (inc (:tries state)))))))))))
+                    (assoc starting :tries (inc (:tries state))))))))))
+
+  )
